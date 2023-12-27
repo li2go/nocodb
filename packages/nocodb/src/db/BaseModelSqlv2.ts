@@ -5611,7 +5611,7 @@ class BaseModelSqlv2 {
       qb.orWhere(await this._wherePk(rowId));
     }
 
-    await qb;
+    await this.execAndParse(qb, null, { raw: true });
   }
 
   async prepareNocoData(data) {
