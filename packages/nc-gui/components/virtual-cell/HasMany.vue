@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { ColumnType } from 'nocodb-sdk'
+import { isSystemColumn } from 'nocodb-sdk'
 import type { Ref } from 'vue'
 import {
   CellValueInj,
   ColumnInj,
   IsFormInj,
-  IsLockedInj,
   IsUnderLookupInj,
   ReadonlyInj,
   ReloadRowDataHookInj,
@@ -30,8 +30,6 @@ const reloadRowTrigger = inject(ReloadRowDataHookInj, createEventHook())
 const isForm = inject(IsFormInj)
 
 const readOnly = inject(ReadonlyInj, ref(false))
-
-const isLocked = inject(IsLockedInj)
 
 const isUnderLookup = inject(IsUnderLookupInj, ref(false))
 
@@ -121,7 +119,7 @@ useSelectedCellKeyupListener(inject(ActiveCellInj, ref(false)), (e: KeyboardEven
       </template>
     </div>
 
-    <div v-if="!isLocked && !isUnderLookup" class="flex justify-end gap-1 min-h-[30px] items-center">
+    <div v-if="!isUnderLookup && !isSystemColumn(column)" class="flex justify-end gap-1 min-h-[30px] items-center">
       <GeneralIcon
         icon="expand"
         class="select-none transform text-sm nc-action-icon text-gray-500/50 hover:text-gray-500 nc-arrow-expand"

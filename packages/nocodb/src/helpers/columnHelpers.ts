@@ -1,5 +1,5 @@
 import { customAlphabet } from 'nanoid';
-import { UITypes } from 'nocodb-sdk';
+import { getAvailableRollupForUiType, UITypes } from 'nocodb-sdk';
 import { pluralize, singularize } from 'inflection';
 import type { RollupColumn } from '~/models';
 import type {
@@ -135,6 +135,18 @@ export async function validateRollupPayload(payload: ColumnReqType | Column) {
     )
   )
     throw new Error('Rollup column not found in related table');
+
+  if (
+    !getAvailableRollupForUiType(relatedColumn.uidt).includes(
+      (payload as RollupColumnReqType).rollup_function,
+    )
+  ) {
+    throw new Error(
+      `Rollup function (${
+        (payload as RollupColumnReqType).rollup_function
+      }) not available for type (${relatedColumn.uidt})`,
+    );
+  }
 }
 
 export async function validateLookupPayload(
@@ -267,6 +279,7 @@ export async function populateRollupForLTAR({
 }
 
 export const sanitizeColumnName = (name: string) => {
+  if (process.env.NC_SANITIZE_COLUMN_NAME === 'false') return name;
   const columnName = name.replace(/\W/g, '_');
 
   // if column name only contains _ then return as 'field'

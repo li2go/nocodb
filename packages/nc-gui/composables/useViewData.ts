@@ -42,10 +42,6 @@ export function useViewData(
   const meta = computed(() => _meta.value || activeTable.value)
   const metaId = computed(() => _meta.value?.id || activeTableId.value)
 
-  if (!meta.value) {
-    throw new Error('Table meta is not available')
-  }
-
   const { t } = useI18n()
 
   const optimisedQuery = useState('optimisedQuery', () => true)
@@ -190,23 +186,33 @@ export function useViewData(
 
     controller.value = CancelToken.source()
 
-    const response = !isPublic.value
-      ? await api.dbViewRow.list(
-          'noco',
-          base.value.id!,
-          metaId.value!,
-          viewMeta.value!.id!,
-          {
-            ...queryParams.value,
-            ...params,
-            ...(isUIAllowed('sortSync') ? {} : { sortArrJson: JSON.stringify(sorts.value) }),
-            ...(isUIAllowed('filterSync') ? {} : { filterArrJson: JSON.stringify(nestedFilters.value) }),
-            where: where?.value,
-          } as any,
-          { cancelToken: controller.value.token },
-        )
-      : await fetchSharedViewData({ sortsArr: sorts.value, filtersArr: nestedFilters.value })
+    isPaginationLoading.value = true
+    let response
 
+    try {
+      response = !isPublic.value
+        ? await api.dbViewRow.list(
+            'noco',
+            base.value.id!,
+            metaId.value!,
+            viewMeta.value!.id!,
+            {
+              ...queryParams.value,
+              ...params,
+              ...(isUIAllowed('sortSync') ? {} : { sortArrJson: JSON.stringify(sorts.value) }),
+              ...(isUIAllowed('filterSync') ? {} : { filterArrJson: JSON.stringify(nestedFilters.value) }),
+              where: where?.value,
+            } as any,
+            { cancelToken: controller.value.token },
+          )
+        : await fetchSharedViewData({ sortsArr: sorts.value, filtersArr: nestedFilters.value, where: where?.value })
+    } catch (error) {
+      // if the request is canceled, then do nothing
+      if (error.code === 'ERR_CANCELED') {
+        return
+      }
+      throw error
+    }
     formattedData.value = formatData(response.list)
     paginationData.value = response.pageInfo
     isPaginationLoading.value = false
@@ -313,8 +319,6 @@ export function useViewData(
   }
 
   const navigateToSiblingRow = async (dir: NavigateDir) => {
-    console.log('test')
-
     const expandedRowIndex = getExpandedRowIndex()
 
     // calculate next row index based on direction

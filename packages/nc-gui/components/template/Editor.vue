@@ -2,7 +2,7 @@
 import dayjs from 'dayjs'
 import utc from 'dayjs/plugin/utc'
 import type { ColumnType, TableType } from 'nocodb-sdk'
-import { UITypes, isSystemColumn, isVirtualCol } from 'nocodb-sdk'
+import { UITypes, getDateFormat, getDateTimeFormat, isSystemColumn, isVirtualCol, parseStringDate } from 'nocodb-sdk'
 import type { CheckboxChangeEvent } from 'ant-design-vue/es/checkbox/interface'
 import { srcDestMappingColumns, tableColumns } from './utils'
 import {
@@ -18,15 +18,12 @@ import {
   extractSdkResponseErrorMsg,
   fieldLengthValidator,
   fieldRequiredValidator,
-  getDateFormat,
-  getDateTimeFormat,
   getUIDTIcon,
   iconMap,
   inject,
   message,
   nextTick,
   onMounted,
-  parseStringDate,
   reactive,
   ref,
   storeToRefs,
@@ -131,10 +128,7 @@ const validators = computed(() =>
     hasSelectColumn.value[tableIdx] = false
 
     table.columns?.forEach((column, columnIdx) => {
-      acc[`tables.${tableIdx}.columns.${columnIdx}.column_name`] = [
-        fieldRequiredValidator(),
-        fieldLengthValidator(base.value?.sources?.[0].type || ClientType.MYSQL),
-      ]
+      acc[`tables.${tableIdx}.columns.${columnIdx}.title`] = [fieldRequiredValidator(), fieldLengthValidator()]
       acc[`tables.${tableIdx}.columns.${columnIdx}.uidt`] = [fieldRequiredValidator()]
       if (isSelect(column)) {
         hasSelectColumn.value[tableIdx] = true
@@ -252,6 +246,7 @@ function deleteTableColumn(tableIdx: number, columnKey: number) {
 function addNewColumnRow(tableIdx: number, uidt: string) {
   data.tables[tableIdx].columns.push({
     key: data.tables[tableIdx].columns.length,
+    title: `title${data.tables[tableIdx].columns.length + 1}`,
     column_name: `title${data.tables[tableIdx].columns.length + 1}`,
     uidt,
   })
@@ -275,7 +270,7 @@ function remapColNames(batchData: any[], columns: ColumnType[]) {
       // then only col.column_name exists in data, else col.ref_column_name
       // for csv, col.column_name always exists in data
       // since it streams the data in getData() with the updated col.column_name
-      const key = col.column_name in data ? col.column_name : col.ref_column_name
+      const key = col.title in data ? col.title : col.ref_column_name
       let d = data[key]
       if (col.uidt === UITypes.Date && d) {
         let dateFormat
@@ -295,7 +290,7 @@ function remapColNames(batchData: any[], columns: ColumnType[]) {
       }
       return {
         ...aggObj,
-        [col.column_name]: d,
+        [col.title]: d,
       }
     }, {}),
   )
@@ -535,6 +530,15 @@ async function importTemplate() {
           title: '',
           columns: table.columns || [],
         })
+
+        if (process.env.NC_SANITIZE_COLUMN_NAME !== 'false') {
+          // column_name could have been updated in tableCreate
+          // e.g. sanitize column name to something like field_1, field_2, and etc
+          createdTable.columns.forEach((column, i) => {
+            table.columns[i].column_name = column.column_name
+          })
+        }
+
         table.id = createdTable.id
         table.title = createdTable.title
 
@@ -780,7 +784,10 @@ watch(modelRef, async () => {
 
             <template #bodyCell="{ column, record }">
               <template v-if="column.key === 'source_column'">
-                <span>{{ record.srcCn }}</span>
+                <NcTooltip class="truncate"
+                  ><template #title>{{ record.srcCn }}</template
+                  >{{ record.srcCn }}</NcTooltip
+                >
               </template>
 
               <template v-else-if="column.key === 'destination_column'">
@@ -892,7 +899,7 @@ watch(modelRef, async () => {
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'column_name'">
                   <a-form-item v-bind="validateInfos[`tables.${tableIdx}.columns.${record.key}.${column.key}`]">
-                    <a-input :ref="(el: HTMLInputElement) => (inputRefs[record.key] = el)" v-model:value="record.column_name" />
+                    <a-input :ref="(el: HTMLInputElement) => (inputRefs[record.key] = el)" v-model:value="record.title" />
                   </a-form-item>
                 </template>
 
@@ -1021,7 +1028,7 @@ watch(modelRef, async () => {
   }
 
   :deep(.template-form-row) > td {
-    @apply p-0 mb-0;
+    @apply p-1 mb-0 truncate max-w-50;
     .ant-form-item {
       @apply mb-0;
     }

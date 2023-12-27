@@ -31,6 +31,7 @@ import {
   isTextArea,
   isTime,
   isURL,
+  isUser,
   isYear,
   storeToRefs,
   toRef,
@@ -82,6 +83,11 @@ const renderIcon = (column: ColumnType, abstractType: any) => {
     return iconMap.percent
   } else if (isGeometry(column)) {
     return iconMap.calculator
+  } else if (isUser(column)) {
+    if ((column.meta as { is_multi: boolean; notify: boolean }).is_multi) {
+      return iconMap.phUsers
+    }
+    return iconMap.phUser
   } else if (isInt(column, abstractType) || isFloat(column, abstractType)) {
     return iconMap.number
   } else if (isString(column, abstractType)) {
@@ -103,7 +109,9 @@ export default defineComponent({
   setup(props) {
     const columnMeta = toRef(props, 'columnMeta')
 
-    const column = inject(ColumnInj, columnMeta)
+    const injectedColumn = inject(ColumnInj, columnMeta)
+
+    const column = computed(() => columnMeta.value ?? injectedColumn.value)
 
     const { sqlUis } = storeToRefs(useBase())
 
@@ -112,9 +120,9 @@ export default defineComponent({
     const abstractType = computed(() => column.value && sqlUi.value.getAbstractType(column.value))
 
     return () => {
-      if (!column.value) return null
+      if (!column.value && !columnMeta.value) return null
 
-      return h(renderIcon(column.value, abstractType.value), {
+      return h(renderIcon((columnMeta.value ?? column.value)!, abstractType.value), {
         class: 'text-inherit mx-1',
       })
     }

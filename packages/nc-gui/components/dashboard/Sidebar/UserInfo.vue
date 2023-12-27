@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import GithubButton from 'vue-github-button'
 import {
   computed,
   message,
@@ -79,7 +78,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex w-full flex-col p-1 border-t-1 border-gray-200 gap-y-2">
+  <div class="flex w-full flex-col p-1 border-t-1 border-gray-200 gap-y-1">
     <NcDropdown v-model:visible="isMenuOpen" placement="topLeft" overlay-class-name="!min-w-64">
       <div
         class="flex flex-row py-2 px-3 gap-x-2 items-center hover:bg-gray-200 rounded-lg cursor-pointer h-10"
@@ -93,17 +92,21 @@ onMounted(() => {
       </div>
       <template #overlay>
         <NcMenu data-testid="nc-sidebar-userinfo">
-          <NcMenuItem v-e="['c:user:logout']" data-testid="nc-sidebar-user-logout" @click="logout">
-            <GeneralLoader v-if="isLoggingOut" class="!ml-0.5 !mr-0.5 !max-h-4.5 !-mt-0.5" />
-            <GeneralIcon v-else icon="signout" class="menu-icon" />
-            <span class="menu-btn"> {{ $t('general.logout') }}</span>
+          <NcMenuItem data-testid="nc-sidebar-user-logout" @click="logout">
+            <div v-e="['c:user:logout']" class="flex gap-2 items-center">
+              <GeneralLoader v-if="isLoggingOut" class="!ml-0.5 !mr-0.5 !max-h-4.5 !-mt-0.5" />
+              <GeneralIcon v-else icon="signout" class="menu-icon" />
+              <span class="menu-btn"> {{ $t('general.logout') }}</span>
+            </div>
           </NcMenuItem>
           <template v-if="!isMobileMode">
-            <NcMenuItem v-e="['c:auth-token:copy']" @click="onCopy">
-              <GeneralIcon v-if="isAuthTokenCopied" icon="check" class="group-hover:text-black menu-icon" />
-              <GeneralIcon v-else icon="copy" class="menu-icon" />
-              <template v-if="isAuthTokenCopied"> {{ $t('title.copiedAuthToken') }} </template>
-              <template v-else> {{ $t('title.copyAuthToken') }} </template>
+            <NcMenuItem @click="onCopy">
+              <div v-e="['c:auth-token:copy']" class="flex gap-2 items-center">
+                <GeneralIcon v-if="isAuthTokenCopied" icon="check" class="group-hover:text-black menu-icon" />
+                <GeneralIcon v-else icon="copy" class="menu-icon" />
+                <template v-if="isAuthTokenCopied"> {{ $t('title.copiedAuthToken') }} </template>
+                <template v-else> {{ $t('title.copyAuthToken') }} </template>
+              </div>
             </NcMenuItem>
           </template>
           <NcDivider />
@@ -140,17 +143,21 @@ onMounted(() => {
           <template v-if="!appInfo.ee">
             <NcDivider />
             <a-popover key="language" class="lang-menu !py-1.5" placement="rightBottom">
-              <NcMenuItem v-e="['c:translate:open']">
-                <GeneralIcon icon="translate" class="group-hover:text-black nc-language ml-0.25 menu-icon" />
-                {{ $t('labels.language') }}
-                <div class="flex items-center text-gray-400 text-xs">{{ $t('labels.community.communityTranslated') }}</div>
-                <div class="flex-1" />
+              <NcMenuItem>
+                <div v-e="['c:translate:open']" class="flex gap-2 items-center">
+                  <GeneralIcon icon="translate" class="group-hover:text-black nc-language ml-0.25 menu-icon" />
+                  {{ $t('labels.language') }}
+                  <div class="flex items-center text-gray-400 text-xs">{{ $t('labels.community.communityTranslated') }}</div>
+                  <div class="flex-1" />
 
-                <MaterialSymbolsChevronRightRounded class="transform group-hover:(scale-115 text-accent) text-xl text-gray-400" />
+                  <MaterialSymbolsChevronRightRounded
+                    class="transform group-hover:(scale-115 text-accent) text-xl text-gray-400"
+                  />
+                </div>
               </NcMenuItem>
 
               <template #content>
-                <div class="bg-white max-h-50vh scrollbar-thin-dull min-w-50 !overflow-auto">
+                <div class="bg-white max-h-50vh scrollbar-thin-dull min-w-64 !overflow-auto">
                   <LazyGeneralLanguageMenu />
                 </div>
               </template>
@@ -197,22 +204,9 @@ onMounted(() => {
     </NcDropdown>
 
     <template v-if="isMobileMode"></template>
-    <div v-else-if="appInfo.ee" class="text-gray-500 text-xs pl-3">© 2023 NocoDB. Inc</div>
-    <div v-else-if="isMounted" class="flex flex-row justify-between pt-1 truncate">
-      <div class="flex flex-wrap mb-1">
-        <GithubButton
-          class="px-2 mb-1"
-          href="https://github.com/nocodb/nocodb"
-          data-icon="octicon-star"
-          data-show-count="true"
-          data-size="large"
-        >
-          Star
-        </GithubButton>
-        <div>
-          <GeneralJoinCloud class="color-transition px-2 text-gray-500 cursor-pointer select-none hover:text-accent" />
-        </div>
-      </div>
+    <div v-else-if="appInfo.ee" class="text-gray-500 text-xs pl-3 mt-1">© 2023 NocoDB. Inc</div>
+    <div v-else class="flex flex-row w-full justify-between pt-0.5 truncate">
+      <GeneralJoinCloud />
     </div>
   </div>
 </template>

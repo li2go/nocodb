@@ -1,4 +1,9 @@
-import { isNumericCol, RelationTypes, UITypes } from 'nocodb-sdk';
+import {
+  isDateMonthFormat,
+  isNumericCol,
+  RelationTypes,
+  UITypes,
+} from 'nocodb-sdk';
 import dayjs from 'dayjs';
 // import customParseFormat from 'dayjs/plugin/customParseFormat.js';
 import type { BaseModelSqlv2 } from '~/db/BaseModelSqlv2';
@@ -8,7 +13,7 @@ import type Column from '~/models/Column';
 import type LookupColumn from '~/models/LookupColumn';
 import type RollupColumn from '~/models/RollupColumn';
 import type FormulaColumn from '~/models/FormulaColumn';
-import type { BarcodeColumn, QrCodeColumn } from '~/models';
+import { type BarcodeColumn, BaseUser, type QrCodeColumn } from '~/models';
 import { NcError } from '~/helpers/catchError';
 import formulaQueryBuilderv2 from '~/db/formulav2/formulaQueryBuilderv2';
 import genRollupSelectv2 from '~/db/genRollupSelectv2';
@@ -442,6 +447,86 @@ const parseConditionV2 = async (
         alias,
         builder,
       );
+    } else if (
+      column.uidt === UITypes.User &&
+      ['like', 'nlike'].includes(filter.comparison_op)
+    ) {
+      const baseUsers = await BaseUser.getUsersList({
+        base_id: column.base_id,
+      });
+      return (qb: Knex.QueryBuilder) => {
+        const users = baseUsers.filter((user) => {
+          const filterVal = filter.value.toLowerCase();
+
+          if (filterVal.startsWith('%') && filterVal.endsWith('%')) {
+            return (user.display_name || user.email)
+              .toLowerCase()
+              .includes(filterVal.substring(1, filterVal.length - 1));
+          } else if (filterVal.startsWith('%')) {
+            return (user.display_name || user.email)
+              .toLowerCase()
+              .endsWith(filterVal.substring(1));
+          } else if (filterVal.endsWith('%')) {
+            return (user.display_name || user.email)
+              .toLowerCase()
+              .startsWith(filterVal.substring(0, filterVal.length - 1));
+          }
+
+          return (user.display_name || user.email)
+            .toLowerCase()
+            .includes(filterVal.toLowerCase());
+        });
+
+        // create nested replace statement for each user
+        const finalStatement = users.reduce((acc, user) => {
+          const qb = knex.raw(`REPLACE(${acc}, ?, ?)`, [
+            user.id,
+            user.display_name || user.email,
+          ]);
+          return qb.toQuery();
+        }, knex.raw(`??`, [column.column_name]).toQuery());
+
+        let val = filter.value;
+        if (filter.comparison_op === 'like') {
+          val =
+            (val + '').startsWith('%') || (val + '').endsWith('%')
+              ? val
+              : `%${val}%`;
+          if (qb?.client?.config?.client === 'pg') {
+            qb = qb.where(knex.raw(`(${finalStatement}) ilike ?`, [val]));
+          } else {
+            qb = qb.where(knex.raw(`(${finalStatement}) like ?`, [val]));
+          }
+        } else {
+          if (!val) {
+            // val is empty -> all values including NULL but empty strings
+            qb.whereNot(column.column_name, '');
+            qb.orWhereNull(column.column_name);
+          } else {
+            val = val.startsWith('%') || val.endsWith('%') ? val : `%${val}%`;
+
+            qb.where((nestedQb) => {
+              if (qb?.client?.config?.client === 'pg') {
+                nestedQb.whereNot(
+                  knex.raw(`(${finalStatement}) ilike ?`, [val]),
+                );
+              } else {
+                nestedQb.whereNot(
+                  knex.raw(`(${finalStatement}) like ?`, [val]),
+                );
+              }
+              if (val !== '%%') {
+                // if value is not empty, empty or null should be included
+                nestedQb.orWhere(column.column_name, '');
+                nestedQb.orWhereNull(column.column_name);
+              } else {
+                // if value is empty, then only null is included
+                nestedQb.orWhereNull(column.column_name);
+              }
+            });
+          }
+        }
+      };
     } else {
       if (
         filter.comparison_op === 'empty' ||
@@ -466,7 +551,13 @@ const parseConditionV2 = async (
             : 'YYYY-MM-DD HH:mm:ssZ';
 
         if ([UITypes.Date, UITypes.DateTime].includes(column.uidt)) {
-          const now = dayjs(new Date());
+          let now = dayjs(new Date());
+          const dateFormatFromMeta = column?.meta?.date_format;
+          if (dateFormatFromMeta && isDateMonthFormat(dateFormatFromMeta)) {
+            // reset to 1st
+            now = dayjs(now).date(1);
+            if (val) val = dayjs(val).date(1);
+          }
           // handle sub operation
           switch (filter.comparison_sub_op) {
             case 'today':
@@ -570,7 +661,15 @@ const parseConditionV2 = async (
                 qb = qb.where(knex.raw('BINARY ?? = ?', [field, val]));
               }
             } else {
-              qb = qb.where(field, val);
+              if (column.uidt === UITypes.DateTime) {
+                if (qb.client.config.client === 'pg') {
+                  qb = qb.where(knex.raw('??::date = ?', [field, val]));
+                } else {
+                  qb = qb.where(knex.raw('DATE(??) = DATE(?)', [field, val]));
+                }
+              } else {
+                qb = qb.where(field, val);
+              }
             }
             if (column.uidt === UITypes.Rating && val === 0) {
               // unset rating is considered as NULL

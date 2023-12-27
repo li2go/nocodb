@@ -9,6 +9,7 @@ import {
   findIndexByPk,
   message,
   populateInsertObject,
+  rowDefaultData,
   rowPkData,
   storeToRefs,
   until,
@@ -34,10 +35,6 @@ export function useData(args: {
 }) {
   const { meta, viewMeta, formattedData, paginationData, callbacks } = args
 
-  if (!meta) {
-    throw new Error('Table meta is not available')
-  }
-
   const { t } = useI18n()
 
   const { getMeta, metas } = useMetas()
@@ -57,9 +54,9 @@ export function useData(args: {
     },
   })
 
-  function addEmptyRow(addAfter = formattedData.value.length) {
+  function addEmptyRow(addAfter = formattedData.value.length, metaValue = meta.value) {
     formattedData.value.splice(addAfter, 0, {
-      row: {},
+      row: { ...rowDefaultData(metaValue?.columns) },
       oldRow: {},
       rowMeta: { new: true },
     })
@@ -244,6 +241,7 @@ export function useData(args: {
               col.uidt === UITypes.Barcode ||
               col.uidt === UITypes.Rollup ||
               col.uidt === UITypes.Checkbox ||
+              col.uidt === UITypes.User ||
               col.au ||
               col.cdf?.includes(' on update ')
             )
@@ -390,6 +388,8 @@ export function useData(args: {
               col.uidt === UITypes.QrCode ||
               col.uidt === UITypes.Barcode ||
               col.uidt === UITypes.Rollup ||
+              col.uidt === UITypes.Checkbox ||
+              col.uidt === UITypes.User ||
               col.au ||
               col.cdf?.includes(' on update ')
             )

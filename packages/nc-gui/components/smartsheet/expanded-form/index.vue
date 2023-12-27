@@ -88,6 +88,10 @@ const isRecordLinkCopied = ref(false)
 
 const { isUIAllowed } = useRoles()
 
+const readOnly = computed(() => !isUIAllowed('dataEdit') || isPublic.value)
+
+const expandedFormScrollWrapper = ref()
+
 const reloadTrigger = inject(ReloadRowDataHookInj, createEventHook())
 
 const { addOrEditStackRow } = useKanbanViewStoreOrThrow()
@@ -186,20 +190,22 @@ const onDuplicateRow = () => {
 }
 
 const save = async () => {
+  let kanbanClbk
+  if (activeView.value?.type === ViewTypes.KANBAN) {
+    kanbanClbk = (row: any, isNewRow: boolean) => {
+      addOrEditStackRow(row, isNewRow)
+    }
+  }
   if (isNew.value) {
-    const data = await _save(rowState.value)
+    await _save(rowState.value, undefined, {
+      kanbanClbk,
+    })
     reloadTrigger?.trigger()
   } else {
-    let kanbanClbk
-    if (activeView.value?.type === ViewTypes.KANBAN) {
-      kanbanClbk = (row: any, isNewRow: boolean) => {
-        addOrEditStackRow(row, isNewRow)
-      }
-    }
-
     await _save(undefined, undefined, {
       kanbanClbk,
     })
+    _loadRow()
     reloadTrigger?.trigger()
   }
   isUnsavedFormExist.value = false
@@ -435,6 +441,13 @@ const preventModalStatus = computed({
 })
 
 const onIsExpandedUpdate = (v: boolean) => {
+  let isDropdownOpen = false
+  document.querySelectorAll('.ant-select-dropdown').forEach((el) => {
+    isDropdownOpen = isDropdownOpen || el.checkVisibility()
+  })
+
+  if (isDropdownOpen) return
+
   if (changedColumns.value.size === 0 && !isUnsavedFormExist.value) {
     isExpanded.value = v
   } else if (!v) {
@@ -447,6 +460,22 @@ const onIsExpandedUpdate = (v: boolean) => {
 const isReadOnlyVirtualCell = (column: ColumnType) => {
   return isRollup(column) || isFormula(column) || isBarcode(column) || isLookup(column) || isQrCode(column)
 }
+
+// Small hack. We need to scroll to the bottom of the form after its mounted and back to top.
+// So that tab to next row works properly, as otherwise browser will focus to save button
+// when we reach to the bottom of the visual scrollable area, not the actual bottom of the form
+watch([expandedFormScrollWrapper, isLoading], () => {
+  if (isMobileMode.value) return
+
+  if (expandedFormScrollWrapper.value && !isLoading.value) {
+    const height = expandedFormScrollWrapper.value.scrollHeight
+    expandedFormScrollWrapper.value.scrollTop = height
+
+    setTimeout(() => {
+      expandedFormScrollWrapper.value.scrollTop = 0
+    }, 125)
+  }
+})
 </script>
 
 <script lang="ts">
@@ -556,14 +585,15 @@ export default {
                   <NcDivider v-if="isUIAllowed('dataEdit') && !isNew" />
                   <NcMenuItem
                     v-if="isUIAllowed('dataEdit') && !isNew"
-                    v-e="['c:row-expand:delete']"
                     class="!text-red-500 !hover:bg-red-50"
                     @click="!isNew && onDeleteRowClick()"
                   >
-                    <component :is="iconMap.delete" data-testid="nc-expanded-form-delete" class="cursor-pointer nc-delete-row" />
-                    <span class="-ml-0.5">
-                      {{ $t('activity.deleteRecord') }}
-                    </span>
+                    <div v-e="['c:row-expand:delete']" data-testid="nc-expanded-form-delete" class="flex gap-2 items-center">
+                      <component :is="iconMap.delete" class="cursor-pointer nc-delete-row" />
+                      <span class="-ml-0.25">
+                        {{ $t('activity.deleteRecord') }}
+                      </span>
+                    </div>
                   </NcMenuItem>
                 </NcMenu>
               </template>
@@ -615,6 +645,7 @@ export default {
           }"
         >
           <div
+            ref="expandedFormScrollWrapper"
             class="flex flex-col flex-grow mt-2 h-full max-h-full nc-scrollbar-md pb-6 items-center w-full bg-white p-4 xs:p-0"
           >
             <div
@@ -640,11 +671,11 @@ export default {
                 <template v-if="isLoading">
                   <div
                     v-if="isMobileMode"
-                    class="!h-8.5 !xs:h-12 !xs:bg-white !sm:mr-21 !w-60 mt-0.75 !rounded-lg !overflow-hidden"
+                    class="!h-8.5 !xs:h-12 !xs:bg-white sm:mr-21 w-60 mt-0.75 !rounded-lg !overflow-hidden"
                   ></div>
                   <a-skeleton-input
                     v-else
-                    class="!h-8.5 !xs:h-9.5 !xs:bg-white !sm:mr-21 !w-60 mt-0.75 !rounded-lg !overflow-hidden"
+                    class="!h-8.5 !xs:h-9.5 !xs:bg-white sm:mr-21 !w-60 mt-0.75 !rounded-lg !overflow-hidden"
                     active
                     size="small"
                   />
@@ -653,7 +684,7 @@ export default {
                   <SmartsheetDivDataCell
                     v-if="col.title"
                     :ref="i ? null : (el: any) => (cellWrapperEl = el)"
-                    class="bg-white rounded-lg !w-[20rem] !xs:w-full border-1 border-gray-200 overflow-hidden px-1 sm:min-h-[35px] xs:min-h-13 flex items-center relative"
+                    class="bg-white w-80 xs:w-full px-1 sm:min-h-[35px] xs:min-h-13 flex items-center relative"
                     :class="{
                       '!bg-gray-50 !px-0 !select-text': isReadOnlyVirtualCell(col),
                     }"
@@ -666,6 +697,7 @@ export default {
                       :class="{
                         'px-1': isReadOnlyVirtualCell(col),
                       }"
+                      :read-only="readOnly"
                     />
 
                     <LazySmartsheetCell
@@ -674,7 +706,7 @@ export default {
                       :column="col"
                       :edit-enabled="true"
                       :active="true"
-                      :read-only="isPublic"
+                      :read-only="readOnly"
                       @update:model-value="changedColumns.add(col.title)"
                     />
                   </SmartsheetDivDataCell>
@@ -714,11 +746,11 @@ export default {
                   <template v-if="isLoading">
                     <div
                       v-if="isMobileMode"
-                      class="!h-8.5 !xs:h-9.5 !xs:bg-white !sm:mr-21 !w-60 mt-0.75 !rounded-lg !overflow-hidden"
+                      class="!h-8.5 !xs:h-9.5 !xs:bg-white sm:mr-21 w-60 mt-0.75 !rounded-lg !overflow-hidden"
                     ></div>
                     <a-skeleton-input
                       v-else
-                      class="!h-8.5 !xs:h-12 !xs:bg-white !sm:mr-21 !w-60 mt-0.75 !rounded-lg !overflow-hidden"
+                      class="!h-8.5 !xs:h-12 !xs:bg-white sm:mr-21 w-60 mt-0.75 !rounded-lg !overflow-hidden"
                       active
                       size="small"
                     />
@@ -727,13 +759,14 @@ export default {
                     <LazySmartsheetDivDataCell
                       v-if="col.title"
                       :ref="i ? null : (el: any) => (cellWrapperEl = el)"
-                      class="!bg-white rounded-lg !w-[20rem] border-1 overflow-hidden border-gray-200 px-1 sm:min-h-[35px] xs:min-h-13 flex items-center relative"
+                      class="bg-white rounded-lg w-80 border-1 overflow-hidden border-gray-200 px-1 sm:min-h-[35px] xs:min-h-13 flex items-center relative"
                     >
                       <LazySmartsheetVirtualCell
                         v-if="isVirtualCol(col)"
                         v-model="_row.row[col.title]"
                         :row="_row"
                         :column="col"
+                        :read-only="readOnly"
                       />
 
                       <LazySmartsheetCell
@@ -742,7 +775,7 @@ export default {
                         :column="col"
                         :edit-enabled="true"
                         :active="true"
-                        :read-only="isPublic"
+                        :read-only="readOnly"
                         @update:model-value="changedColumns.add(col.title)"
                       />
                     </LazySmartsheetDivDataCell>
@@ -886,5 +919,9 @@ export default {
 
 :deep(.ant-select-selection-item) {
   @apply !xs:(mt-1.75 ml-1);
+}
+
+.nc-data-cell:focus-within {
+  @apply !border-1 !border-brand-500 !rounded-lg !shadow-none !ring-0;
 }
 </style>

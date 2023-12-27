@@ -27,13 +27,20 @@ const cdfValue = ref<string | null>(null)
 const editEnabled = ref(false)
 
 const updateCdfValue = (cdf: string | null) => {
-  vModel.value.cdf = cdf
-  cdfValue.value = vModel.value.cdf
+  vModel.value = { ...vModel.value, cdf }
+  cdfValue.value = cdf
 }
 
 onMounted(() => {
   updateCdfValue(vModel.value?.cdf ? vModel.value.cdf : null)
 })
+
+watch(
+  () => vModel.value.cdf,
+  (newValue) => {
+    cdfValue.value = newValue
+  },
+)
 </script>
 
 <template>
@@ -58,7 +65,7 @@ onMounted(() => {
         :is="iconMap.close"
         v-if="![UITypes.Year, UITypes.SingleSelect, UITypes.MultiSelect].includes(vModel.uidt)"
         class="w-4 h-4 cursor-pointer rounded-full !text-black-500 text-gray-500 cursor-pointer hover:bg-gray-50"
-        @click="cdfValue = null"
+        @click="updateCdfValue(null)"
       />
     </div>
   </div>

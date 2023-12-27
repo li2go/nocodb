@@ -455,9 +455,26 @@ export class TablesService {
 
     const mxColumnLength = Column.getMaxColumnNameLength(sqlClientType);
 
+    const uniqueColumnNameCount = {};
+
     for (const column of param.table.columns) {
       if (!isVirtualCol(column)) {
-        column.column_name = sanitizeColumnName(column.column_name);
+        const mxColumnLength = Column.getMaxColumnNameLength(sqlClientType);
+
+        // - 5 is a buffer for suffix
+        column.column_name = sanitizeColumnName(
+          column.column_name.slice(0, mxColumnLength - 5),
+        );
+
+        if (uniqueColumnNameCount[column.column_name]) {
+          let suffix = 1;
+          let targetColumnName = `${column.column_name}_${suffix++}`;
+          while (uniqueColumnNameCount[targetColumnName]) {
+            targetColumnName = `${column.column_name}_${suffix++}`;
+          }
+          column.column_name = targetColumnName;
+        }
+        uniqueColumnNameCount[column.column_name] = 1;
       }
 
       if (column.column_name.length > mxColumnLength) {

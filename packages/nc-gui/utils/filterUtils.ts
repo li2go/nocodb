@@ -1,4 +1,4 @@
-import { UITypes, isNumericCol, numericUITypes } from 'nocodb-sdk'
+import { UITypes, isDateMonthFormat, isNumericCol, numericUITypes } from 'nocodb-sdk'
 
 const getEqText = (fieldUiType: UITypes) => {
   if (isNumericCol(fieldUiType) || fieldUiType === UITypes.Time) {
@@ -70,6 +70,8 @@ const getLteText = (fieldUiType: UITypes) => {
 
 export const comparisonOpList = (
   fieldUiType: UITypes,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  dateFormat?: string,
 ): {
   text: string
   value: string
@@ -93,13 +95,13 @@ export const comparisonOpList = (
     text: getEqText(fieldUiType),
     value: 'eq',
     ignoreVal: false,
-    excludedTypes: [UITypes.Checkbox, UITypes.MultiSelect, UITypes.Attachment],
+    excludedTypes: [UITypes.Checkbox, UITypes.MultiSelect, UITypes.Attachment, UITypes.User],
   },
   {
     text: getNeqText(fieldUiType),
     value: 'neq',
     ignoreVal: false,
-    excludedTypes: [UITypes.Checkbox, UITypes.MultiSelect, UITypes.Attachment],
+    excludedTypes: [UITypes.Checkbox, UITypes.MultiSelect, UITypes.Attachment, UITypes.User],
   },
   {
     text: getLikeText(fieldUiType),
@@ -109,6 +111,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Date,
       UITypes.DateTime,
@@ -124,6 +127,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Date,
       UITypes.DateTime,
@@ -139,6 +143,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Attachment,
       UITypes.LinkToAnotherRecord,
@@ -157,6 +162,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Attachment,
       UITypes.LinkToAnotherRecord,
@@ -176,6 +182,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Attachment,
       UITypes.LinkToAnotherRecord,
@@ -194,6 +201,7 @@ export const comparisonOpList = (
       UITypes.Checkbox,
       UITypes.SingleSelect,
       UITypes.MultiSelect,
+      UITypes.User,
       UITypes.Collaborator,
       UITypes.Attachment,
       UITypes.LinkToAnotherRecord,
@@ -207,25 +215,25 @@ export const comparisonOpList = (
     text: 'contains all of',
     value: 'allof',
     ignoreVal: false,
-    includedTypes: [UITypes.MultiSelect],
+    includedTypes: [UITypes.MultiSelect, UITypes.User],
   },
   {
     text: 'contains any of',
     value: 'anyof',
     ignoreVal: false,
-    includedTypes: [UITypes.MultiSelect, UITypes.SingleSelect],
+    includedTypes: [UITypes.MultiSelect, UITypes.SingleSelect, UITypes.User],
   },
   {
     text: 'does not contain all of',
     value: 'nallof',
     ignoreVal: false,
-    includedTypes: [UITypes.MultiSelect],
+    includedTypes: [UITypes.MultiSelect, UITypes.User],
   },
   {
     text: 'does not contain any of',
     value: 'nanyof',
     ignoreVal: false,
-    includedTypes: [UITypes.MultiSelect, UITypes.SingleSelect],
+    includedTypes: [UITypes.MultiSelect, UITypes.SingleSelect, UITypes.User],
   },
   {
     text: getGtText(fieldUiType),
@@ -274,6 +282,7 @@ export const comparisonOpList = (
 export const comparisonSubOpList = (
   // TODO: type
   comparison_op: string,
+  dateFormat?: string,
 ): {
   text: string
   value: string
@@ -281,6 +290,8 @@ export const comparisonSubOpList = (
   includedTypes?: UITypes[]
   excludedTypes?: UITypes[]
 }[] => {
+  const isDateMonth = dateFormat && isDateMonthFormat(dateFormat)
+
   if (comparison_op === 'isWithin') {
     return [
       {
@@ -338,31 +349,31 @@ export const comparisonSubOpList = (
       text: 'today',
       value: 'today',
       ignoreVal: true,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'tomorrow',
       value: 'tomorrow',
       ignoreVal: true,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'yesterday',
       value: 'yesterday',
       ignoreVal: true,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'one week ago',
       value: 'oneWeekAgo',
       ignoreVal: true,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'one week from now',
       value: 'oneWeekFromNow',
       ignoreVal: true,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'one month ago',
@@ -380,16 +391,16 @@ export const comparisonSubOpList = (
       text: 'number of days ago',
       value: 'daysAgo',
       ignoreVal: false,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
       text: 'number of days from now',
       value: 'daysFromNow',
       ignoreVal: false,
-      includedTypes: [UITypes.Date, UITypes.DateTime],
+      includedTypes: [...(isDateMonth ? [] : [UITypes.Date, UITypes.DateTime])],
     },
     {
-      text: 'exact date',
+      text: isDateMonth ? 'exact month' : 'exact date',
       value: 'exactDate',
       ignoreVal: false,
       includedTypes: [UITypes.Date, UITypes.DateTime],

@@ -1,9 +1,9 @@
-import type { BaseType, ColumnType, FilterType, MetaType, PaginatedType, Roles, RolesObj, ViewTypes } from 'nocodb-sdk'
+import type { BaseType, ColumnType, FilterType, MetaType, PaginatedType, Roles, RolesObj, TableType, ViewTypes } from 'nocodb-sdk'
 import type { I18n } from 'vue-i18n'
 import type { Theme as AntTheme } from 'ant-design-vue/es/config-provider'
 import type { UploadFile } from 'ant-design-vue'
 import type { ImportSource, ImportType, TabType } from './enums'
-import type { rolePermissions } from './constants'
+import type { rolePermissions } from './acl'
 
 interface User {
   id: string
@@ -126,6 +126,7 @@ type NcProject = BaseType & {
   edit?: boolean
   starred?: boolean
   uuid?: string
+  users?: User[]
 }
 
 interface UndoRedoAction {
@@ -171,7 +172,12 @@ type ViewPageType = 'view' | 'webhook' | 'api' | 'field' | 'relation'
 
 type NcButtonSize = 'xxsmall' | 'xsmall' | 'small' | 'medium'
 
-export {
+interface SidebarTableNode extends TableType {
+  isMetaLoading?: boolean
+  isViewsLoading?: boolean
+}
+
+export type {
   User,
   ProjectMetaInfo,
   Field,
@@ -195,4 +201,5 @@ export {
   Users,
   ViewPageType,
   NcButtonSize,
+  SidebarTableNode,
 }

@@ -1,6 +1,7 @@
 <script lang="ts" setup>
+import { UITypes, isLinksOrLTAR } from 'nocodb-sdk'
 import Table from './Table.vue'
-import { IsGroupByInj, computed, ref } from '#imports'
+import { IsGroupByInj, computed, ref, rowDefaultData } from '#imports'
 import type { Group, Row } from '#imports'
 
 const props = defineProps<{
@@ -37,18 +38,26 @@ const view = inject(ActiveViewInj, ref())
 
 const reloadViewDataHook = inject(ReloadViewDataHookInj, createEventHook())
 
-function addEmptyRow(group: Group, addAfter?: number) {
+function addEmptyRow(group: Group, addAfter?: number, metaValue = meta.value) {
   if (group.nested || !group.rows) return
 
   addAfter = addAfter ?? group.rows.length
 
   const setGroup = group.nestedIn.reduce((acc, curr) => {
-    if (curr.key !== '__nc_null__') acc[curr.title] = curr.key
+    if (
+      curr.key !== '__nc_null__' &&
+      // avoid setting default value for rollup, formula, barcode, qrcode, links, ltar
+      !isLinksOrLTAR(curr.column_uidt) &&
+      ![UITypes.Rollup, UITypes.Lookup, UITypes.Formula, UITypes.Barcode, UITypes.QrCode].includes(curr.column_uidt)
+    ) {
+      acc[curr.title] = curr.key
+    }
     return acc
   }, {} as Record<string, any>)
 
   group.rows.splice(addAfter, 0, {
     row: {
+      ...rowDefaultData(metaValue?.columns),
       ...setGroup,
     },
     oldRow: {},

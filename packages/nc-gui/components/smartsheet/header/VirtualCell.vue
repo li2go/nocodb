@@ -36,6 +36,8 @@ const editColumnDropdown = ref(false)
 
 const isDropDownOpen = ref(false)
 
+const isLocked = inject(IsLockedInj, ref(false))
+
 provide(ColumnInj, column)
 
 const { metas } = useMetas()
@@ -90,6 +92,7 @@ const tooltipMsg = computed(() => {
   if (!column.value) {
     return ''
   }
+
   if (isHm(column.value)) {
     return `'${tableTile.value}' ${t('labels.hasMany')} '${relatedTableTitle.value}'`
   } else if (isMm(column.value)) {
@@ -108,7 +111,7 @@ const tooltipMsg = computed(() => {
   } else if (isRollup(column.value)) {
     return `'${childColumn.value.title}' of '${relatedTableTitle.value}' (${childColumn.value.uidt})`
   }
-  return ''
+  return column?.value?.title || ''
 })
 
 const columnOrder = ref<Pick<ColumnReqType, 'column_order'> | null>(null)
@@ -124,12 +127,16 @@ const closeAddColumnDropdown = () => {
 }
 
 const openHeaderMenu = () => {
+  if (isLocked.value) return
+
   if (!isForm.value && !isExpandedForm.value && isUIAllowed('fieldEdit') && !isMobileMode.value) {
     editColumnDropdown.value = true
   }
 }
 
 const openDropDown = (e: Event) => {
+  if (isLocked.value) return
+
   if (isForm.value || isExpandedForm.value || (!isUIAllowed('fieldEdit') && !isMobileMode.value)) return
 
   e.preventDefault()
@@ -147,14 +154,14 @@ const openDropDown = (e: Event) => {
   >
     <LazySmartsheetHeaderVirtualCellIcon v-if="column && !props.hideIcon" />
 
-    <a-tooltip placement="bottom">
-      <template v-if="!isForm && !isExpandedForm" #title>
+    <NcTooltip placement="bottom" class="truncate name pl-1" show-on-truncate-only>
+      <template #title>
         {{ tooltipMsg }}
       </template>
-      <span class="name truncate pl-1" :class="{ truncate: !isForm }" :data-test-id="column.title">
+      <span :data-test-id="column.title">
         {{ column.title }}
       </span>
-    </a-tooltip>
+    </NcTooltip>
 
     <span v-if="isVirtualColRequired(column, meta?.columns || []) || required" class="text-red-500">&nbsp;*</span>
 

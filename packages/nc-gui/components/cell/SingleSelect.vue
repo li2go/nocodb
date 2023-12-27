@@ -1,12 +1,10 @@
 <script lang="ts" setup>
-import { onUnmounted } from '@vue/runtime-core'
 import { message } from 'ant-design-vue'
 import tinycolor from 'tinycolor2'
 import type { Select as AntSelect } from 'ant-design-vue'
 import type { SelectOptionType } from 'nocodb-sdk'
 import {
   ActiveCellInj,
-  CellClickHookInj,
   ColumnInj,
   EditColumnInj,
   EditModeInj,
@@ -43,15 +41,15 @@ const column = inject(ColumnInj)!
 
 const readOnly = inject(ReadonlyInj)!
 
-const isLockedMode = inject(IsLockedInj, ref(false))
-
 const isEditable = inject(EditModeInj, ref(false))
 
 const activeCell = inject(ActiveCellInj, ref(false))
 
+const isForm = inject(IsFormInj, ref(false))
+
 // use both ActiveCellInj or EditModeInj to determine the active state
 // since active will be false in case of form view
-const active = computed(() => activeCell.value || isEditable.value)
+const active = computed(() => activeCell.value || isEditable.value || isForm.value)
 
 const aselect = ref<typeof AntSelect>()
 
@@ -62,8 +60,6 @@ const isKanban = inject(IsKanbanInj, ref(false))
 const isPublic = inject(IsPublicInj, ref(false))
 
 const isEditColumn = inject(EditColumnInj, ref(false))
-
-const isForm = inject(IsFormInj, ref(false))
 
 const { $api } = useNuxtApp()
 
@@ -78,6 +74,8 @@ const { isPg, isMysql } = useBase()
 // a variable to keep newly created option value
 // temporary until it's add the option to column meta
 const tempSelectedOptState = ref<string>()
+
+const isFocusing = ref(false)
 
 const isNewOptionCreateEnabled = computed(() => !isPublic.value && !disableOptionCreation && isUIAllowed('fieldEdit'))
 
@@ -99,7 +97,7 @@ const isOptionMissing = computed(() => {
   return (options.value ?? []).every((op) => op.title !== searchVal.value)
 })
 
-const hasEditRoles = computed(() => isUIAllowed('dataEdit'))
+const hasEditRoles = computed(() => isUIAllowed('dataEdit') || isForm.value)
 
 const editAllowed = computed(() => (hasEditRoles.value || isForm.value) && active.value)
 
@@ -217,14 +215,20 @@ const onKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter') {
     e.stopPropagation()
   }
+
+  if (e.key === 'Escape') {
+    isOpen.value = false
+
+    setTimeout(() => {
+      aselect.value?.$el.querySelector('.ant-select-selection-search > input').focus()
+    }, 100)
+  }
 }
 
 const onSelect = () => {
   isOpen.value = false
   isEditable.value = false
 }
-
-const cellClickHook = inject(CellClickHookInj, null)
 
 const toggleMenu = (e: Event) => {
   // todo: refactor
@@ -236,19 +240,11 @@ const toggleMenu = (e: Event) => {
     vModel.value = ''
     return e.stopPropagation()
   }
-  if (cellClickHook) return
-  isOpen.value = editAllowed.value && !isOpen.value
-}
 
-const cellClickHookHandler = () => {
+  if (isFocusing.value) return
+
   isOpen.value = editAllowed.value && !isOpen.value
 }
-onMounted(() => {
-  cellClickHook?.on(cellClickHookHandler)
-})
-onUnmounted(() => {
-  cellClickHook?.on(cellClickHookHandler)
-})
 
 const handleClose = (e: MouseEvent) => {
   if (isOpen.value && aselect.value && !aselect.value.$el.contains(e.target)) {
@@ -261,16 +257,27 @@ useEventListener(document, 'click', handleClose, true)
 const selectedOpt = computed(() => {
   return options.value.find((o) => o.value === vModel.value || o.value === vModel.value?.trim())
 })
+
+const onFocus = () => {
+  isFocusing.value = true
+
+  setTimeout(() => {
+    isFocusing.value = false
+  }, 250)
+
+  isOpen.value = true
+}
 </script>
 
 <template>
   <div
-    class="h-full w-full flex items-center nc-single-select"
-    :class="{ 'read-only': readOnly || isLockedMode }"
+    class="h-full w-full flex items-center nc-single-select focus:outline-transparent"
+    :class="{ 'read-only': readOnly }"
     @click="toggleMenu"
+    @keydown.enter.stop.prevent="toggleMenu"
   >
-    <div v-if="!(active || isEditable)">
-      <a-tag v-if="selectedOpt" class="rounded-tag" :color="selectedOpt.color">
+    <div v-if="!(active || isEditable)" class="w-full">
+      <a-tag v-if="selectedOpt" class="rounded-tag max-w-full" :color="selectedOpt.color">
         <span
           :style="{
             'color': tinycolor.isReadable(selectedOpt.color || '#ccc', '#fff', { level: 'AA', size: 'large' })
@@ -280,12 +287,26 @@ const selectedOpt = computed(() => {
           }"
           :class="{ 'text-sm': isKanban }"
         >
-          {{ selectedOpt.title }}
+          <NcTooltip class="truncate max-w-full" show-on-truncate-only>
+            <template #title>
+              {{ selectedOpt.title }}
+            </template>
+            <span
+              class="text-ellipsis overflow-hidden"
+              :style="{
+                wordBreak: 'keep-all',
+                whiteSpace: 'nowrap',
+                display: 'inline',
+              }"
+            >
+              {{ selectedOpt.title }}
+            </span>
+          </NcTooltip>
         </span>
       </a-tag>
     </div>
 
-    <a-select
+    <NcSelect
       v-else
       ref="aselect"
       v-model:value="vModel"
@@ -295,13 +316,15 @@ const selectedOpt = computed(() => {
       :allow-clear="!column.rqd && editAllowed"
       :bordered="false"
       :open="isOpen && editAllowed"
-      :disabled="readOnly || !editAllowed || isLockedMode"
-      :show-arrow="hasEditRoles && !(readOnly || isLockedMode) && active && vModel === null"
-      :dropdown-class-name="`nc-dropdown-single-select-cell ${isOpen && active ? 'active' : ''}`"
+      :disabled="readOnly || !editAllowed"
       :show-search="!isMobileMode && isOpen && active"
+      :show-arrow="hasEditRoles && !readOnly && active && (vModel === null || vModel === undefined)"
+      :dropdown-class-name="`nc-dropdown-single-select-cell ${isOpen && active ? 'active' : ''}`"
       @select="onSelect"
       @keydown="onKeydown($event)"
       @search="search"
+      @blur="isOpen = false"
+      @focus="onFocus"
     >
       <a-select-option
         v-for="op of options"
@@ -311,7 +334,7 @@ const selectedOpt = computed(() => {
         :class="`nc-select-option-${column.title}-${op.title}`"
         @click.stop
       >
-        <a-tag class="rounded-tag" :color="op.color">
+        <a-tag class="rounded-tag max-w-full" :color="op.color">
           <span
             :style="{
               'color': tinycolor.isReadable(op.color || '#ccc', '#fff', { level: 'AA', size: 'large' })
@@ -321,7 +344,21 @@ const selectedOpt = computed(() => {
             }"
             :class="{ 'text-sm': isKanban }"
           >
-            {{ op.title }}
+            <NcTooltip class="truncate max-w-full" show-on-truncate-only>
+              <template #title>
+                {{ op.title }}
+              </template>
+              <span
+                class="text-ellipsis overflow-hidden"
+                :style="{
+                  wordBreak: 'keep-all',
+                  whiteSpace: 'nowrap',
+                  display: 'inline',
+                }"
+              >
+                {{ op.title }}
+              </span>
+            </NcTooltip>
           </span>
         </a-tag>
       </a-select-option>
@@ -333,7 +370,7 @@ const selectedOpt = computed(() => {
           </div>
         </div>
       </a-select-option>
-    </a-select>
+    </NcSelect>
   </div>
 </template>
 
@@ -348,6 +385,7 @@ const selectedOpt = computed(() => {
 
 :deep(.ant-select-clear) {
   opacity: 1;
+  border-radius: 100%;
 }
 
 .nc-single-select:not(.read-only) {
@@ -367,5 +405,11 @@ const selectedOpt = computed(() => {
 
 :deep(.ant-select-clear > span) {
   @apply block;
+}
+</style>
+
+<style lang="scss">
+.ant-select-item-option-content {
+  @apply !flex !items-center;
 }
 </style>

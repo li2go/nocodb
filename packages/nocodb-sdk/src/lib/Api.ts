@@ -463,7 +463,8 @@ export interface ColumnType {
     | 'URL'
     | 'Year'
     | 'QrCode'
-    | 'Links';
+    | 'Links'
+    | 'User';
   /** Is Unsigned? */
   un?: BoolType;
   /** Is unique? */
@@ -1780,7 +1781,8 @@ export interface NormalColumnRequestType {
     | 'URL'
     | 'Year'
     | 'QrCode'
-    | 'Links';
+    | 'Links'
+    | 'User';
   /** Is this column unique? */
   un?: BoolType;
   /** Is this column unique? */
@@ -2761,7 +2763,20 @@ export interface NotificationUpdateType {
   is_read?: boolean;
 }
 
-import axios, { AxiosInstance, AxiosRequestConfig, ResponseType } from 'axios';
+export interface UserFieldRecordType {
+  id: string;
+  display_name?: string;
+  email: string;
+  deleted?: boolean;
+}
+
+import type {
+  AxiosInstance,
+  AxiosRequestConfig,
+  HeadersDefaults,
+  ResponseType,
+} from 'axios';
+import axios from 'axios';
 
 export type QueryParamsType = Record<string | number, any>;
 
@@ -2783,7 +2798,10 @@ export interface FullRequestParams
   body?: unknown;
 }
 
-export type RequestParams = Omit<FullRequestParams, 'body' | 'method' | 'path'>;
+export type RequestParams = Omit<
+  FullRequestParams,
+  'body' | 'method' | 'query' | 'path'
+>;
 
 export interface ApiConfig<SecurityDataType = unknown>
   extends Omit<AxiosRequestConfig, 'data' | 'cancelToken'> {
@@ -2798,6 +2816,7 @@ export enum ContentType {
   Json = 'application/json',
   FormData = 'multipart/form-data',
   UrlEncoded = 'application/x-www-form-urlencoded',
+  Text = 'text/plain',
 }
 
 export class HttpClient<SecurityDataType = unknown> {
@@ -2826,43 +2845,50 @@ export class HttpClient<SecurityDataType = unknown> {
     this.securityData = data;
   };
 
-  private mergeRequestParams(
+  protected mergeRequestParams(
     params1: AxiosRequestConfig,
     params2?: AxiosRequestConfig
   ): AxiosRequestConfig {
+    const method = params1.method || (params2 && params2.method);
+
     return {
       ...this.instance.defaults,
       ...params1,
       ...(params2 || {}),
       headers: {
-        ...(this.instance.defaults.headers || {}),
+        ...((method &&
+          this.instance.defaults.headers[
+            method.toLowerCase() as keyof HeadersDefaults
+          ]) ||
+          {}),
         ...(params1.headers || {}),
         ...((params2 && params2.headers) || {}),
       },
     };
   }
 
-  protected createFormData(input: Record<string, unknown>): FormData {
-    if (input instanceof FormData) {
-      return input;
+  protected stringifyFormItem(formItem: unknown) {
+    if (typeof formItem === 'object' && formItem !== null) {
+      return JSON.stringify(formItem);
+    } else {
+      return `${formItem}`;
     }
+  }
+
+  protected createFormData(input: Record<string, unknown>): FormData {
     return Object.keys(input || {}).reduce((formData, key) => {
       const property = input[key];
+      const propertyContent: any[] =
+        property instanceof Array ? property : [property];
 
-      if (property instanceof Blob) {
-        formData.append(key, property);
-      } else if (typeof property === 'object' && property !== null) {
-        if (Array.isArray(property)) {
-          // eslint-disable-next-line functional/no-loop-statement
-          for (const prop of property) {
-            formData.append(`${key}[]`, prop);
-          }
-        } else {
-          formData.append(key, JSON.stringify(property));
-        }
-      } else {
-        formData.append(key, `${property}`);
+      for (const formItem of propertyContent) {
+        const isFileType = formItem instanceof Blob || formItem instanceof File;
+        formData.append(
+          key,
+          isFileType ? formItem : this.stringifyFormItem(formItem)
+        );
       }
+
       return formData;
     }, new FormData());
   }
@@ -2883,7 +2909,7 @@ export class HttpClient<SecurityDataType = unknown> {
         (await this.securityWorker(this.securityData))) ||
       {};
     const requestParams = this.mergeRequestParams(params, secureParams);
-    const responseFormat = (format && this.format) || void 0;
+    const responseFormat = format || this.format || undefined;
 
     if (
       type === ContentType.FormData &&
@@ -2891,21 +2917,26 @@ export class HttpClient<SecurityDataType = unknown> {
       body !== null &&
       typeof body === 'object'
     ) {
-      requestParams.headers.common = { Accept: '*/*' };
-      requestParams.headers.post = {};
-      requestParams.headers.put = {};
-
       body = this.createFormData(body as Record<string, unknown>);
+    }
+
+    if (
+      type === ContentType.Text &&
+      body &&
+      body !== null &&
+      typeof body !== 'string'
+    ) {
+      body = JSON.stringify(body);
     }
 
     return this.instance
       .request({
         ...requestParams,
         headers: {
+          ...(requestParams.headers || {}),
           ...(type && type !== ContentType.FormData
             ? { 'Content-Type': type }
             : {}),
-          ...(requestParams.headers || {}),
         },
         params: query,
         responseType: responseFormat,
@@ -3319,7 +3350,7 @@ export class Api<
       }),
 
     /**
- * @description Regenerate user refresh token
+ * @description Creates a new refresh token and JWT auth token for the user. The refresh token is sent as a cookie, while the JWT auth token is included in the response body.
  * 
  * @tags Auth
  * @name TokenRefresh
@@ -3327,7 +3358,7 @@ export class Api<
  * @request POST:/api/v1/auth/token/refresh
  * @response `200` `{
   \**
-   * New access token for user
+   * New JWT auth token for user
    * @example 96751db2d53fb834382b682268874a2ea9ee610e4d904e688d1513f11d3c30d62d36d9e05dec0d63
    *\
   token?: string,
@@ -3343,7 +3374,7 @@ export class Api<
       this.request<
         {
           /**
-           * New access token for user
+           * New JWT auth token for user
            * @example 96751db2d53fb834382b682268874a2ea9ee610e4d904e688d1513f11d3c30d62d36d9e05dec0d63
            */
           token?: string;

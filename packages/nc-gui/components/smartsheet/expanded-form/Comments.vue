@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { VNodeRef } from '@vue/runtime-core'
 import type { AuditType } from 'nocodb-sdk'
+import { timeAgo } from 'nocodb-sdk'
 import { Icon } from '@iconify/vue'
-import { ref, timeAgo, useExpandedFormStoreOrThrow, useGlobal, useRoles, watch } from '#imports'
+import { ref, useExpandedFormStoreOrThrow, useGlobal, useRoles, watch } from '#imports'
 
 const props = defineProps<{
-  isLoading: boolean
+  loading: boolean
 }>()
 
 const { loadCommentsAndLogs, commentsAndLogs, saveComment: _saveComment, comment, updateComment } = useExpandedFormStoreOrThrow()
@@ -16,7 +17,7 @@ const commentsWrapperEl = ref<HTMLDivElement>()
 
 const { user, appInfo } = useGlobal()
 
-const isExpandedFormLoading = computed(() => props.isLoading)
+const isExpandedFormLoading = computed(() => props.loading)
 
 const tab = ref<'comments' | 'audits'>('comments')
 

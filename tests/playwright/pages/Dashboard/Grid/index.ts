@@ -55,7 +55,7 @@ export class GridPage extends BasePage {
 
   async verifyLockMode() {
     // add new row button
-    expect(await this.btn_addNewRow.count()).toBe(0);
+    expect(await this.btn_addNewRow.count()).toBe(1);
 
     await this.toolbar.verifyLockMode();
     await this.footbar.verifyLockMode();
@@ -123,21 +123,28 @@ export class GridPage extends BasePage {
 
     await this.get().locator('.nc-grid-add-new-cell').click();
 
+    // wait for insert row response
+    await this.rootPage.waitForTimeout(400);
+
     const rowCount = index + 1;
     await expect(this.get().locator('.nc-grid-row')).toHaveCount(rowCount);
 
     await this._fillRow({ index, columnHeader, value: rowValue });
 
     const clickOnColumnHeaderToSave = () =>
-      this.get().locator(`[data-title="${columnHeader}"]`).locator(`div[data-test-id="${columnHeader}"]`).click();
+      this.get().locator(`[data-title="${columnHeader}"]`).locator(`span[data-test-id="${columnHeader}"]`).click();
 
     if (networkValidation) {
       await this.waitForResponse({
         uiAction: clickOnColumnHeaderToSave,
         requestUrlPathToMatch: 'api/v1/db/data/noco',
-        httpMethodsToMatch: ['POST'],
+        httpMethodsToMatch: [
+          // if the row does not contain the required cell, editing the row cell will emit a PATCH request; otherwise, it will emit a POST request.
+          'PATCH',
+          'POST',
+        ],
         // numerical types are returned in number format from the server
-        responseJsonMatcher: resJson => String(resJson?.[columnHeader]) === String(rowValue),
+        responseJsonMatcher: resJson => String(resJson?.[columnHeader]) === String(value),
       });
     } else {
       await clickOnColumnHeaderToSave();
@@ -164,7 +171,7 @@ export class GridPage extends BasePage {
     await this._fillRow({ index, columnHeader, value });
 
     const clickOnColumnHeaderToSave = () =>
-      this.get().locator(`[data-title="${columnHeader}"]`).locator(`div[data-test-id="${columnHeader}"]`).click();
+      this.get().locator(`[data-title="${columnHeader}"]`).locator(`span[data-test-id="${columnHeader}"]`).click();
 
     if (networkValidation) {
       await this.waitForResponse({
@@ -449,5 +456,20 @@ export class GridPage extends BasePage {
       }
     }
     return text;
+  }
+
+  async pasteWithMouse({ index, columnHeader }: CellProps) {
+    await this.cell.get({ index, columnHeader }).scrollIntoViewIfNeeded();
+    await this.cell.get({ index, columnHeader }).click({ button: 'right' });
+
+    await this.get().page().getByTestId('context-menu-item-paste').click();
+
+    // kludge: wait for paste to complete
+    await this.rootPage.waitForTimeout(1000);
+  }
+
+  async clearWithMouse({ index, columnHeader }: CellProps) {
+    await this.cell.get({ index, columnHeader }).click({ button: 'right' });
+    await this.get().page().getByTestId('context-menu-item-clear').click();
   }
 }

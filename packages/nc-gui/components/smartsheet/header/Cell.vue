@@ -17,6 +17,8 @@ const hideMenu = toRef(props, 'hideMenu')
 
 const isForm = inject(IsFormInj, ref(false))
 
+const isLocked = inject(IsLockedInj, ref(false))
+
 const isSurveyForm = inject(IsSurveyFormInj, ref(false))
 
 const isExpandedForm = inject(IsExpandedFormOpenInj, ref(false))
@@ -46,12 +48,16 @@ const closeAddColumnDropdown = () => {
 }
 
 const openHeaderMenu = () => {
+  if (isLocked.value) return
+
   if (!isForm.value && !isExpandedForm.value && isUIAllowed('fieldEdit') && !isMobileMode.value) {
     editColumnDropdown.value = true
   }
 }
 
 const openDropDown = (e: Event) => {
+  if (isLocked.value) return
+
   if (isForm.value || isExpandedForm.value || (!isUIAllowed('fieldEdit') && !isMobileMode.value)) return
 
   e.preventDefault()
@@ -84,18 +90,23 @@ const onClick = (e: Event) => {
         'self-start': isForm || isSurveyForm,
       }"
     />
-    <div
+    <NcTooltip
       v-if="column"
-      class="name pl-1"
       :class="{
         'cursor-pointer pt-0.25': !isForm && isUIAllowed('fieldEdit') && !hideMenu && !isExpandedForm,
         'cursor-default': isForm || !isUIAllowed('fieldEdit') || hideMenu,
-        '!truncate': !isForm,
+        'truncate': !isForm,
       }"
-      :data-test-id="column.title"
+      class="name pl-1"
+      placement="bottom"
+      show-on-truncate-only
     >
-      {{ column.title }}
-    </div>
+      <template #title> {{ column.title }} </template>
+
+      <span :data-test-id="column.title">
+        {{ column.title }}
+      </span>
+    </NcTooltip>
 
     <span v-if="(column.rqd && !column.cdf) || required" class="text-red-500">&nbsp;*</span>
 

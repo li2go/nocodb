@@ -43,8 +43,6 @@ const sortableRef = ref<HTMLDivElement>()
 
 const currentCellRef = inject(CurrentCellInj, dropZoneInjection.value)
 
-const isLockedMode = inject(IsLockedInj, ref(false))
-
 const isGallery = inject(IsGalleryInj, ref(false))
 
 const isKanban = inject(IsKanbanInj, ref(false))
@@ -69,17 +67,13 @@ const {
   open: _open,
   FileIcon,
   selectedImage,
-  isReadonly: _isReadonly,
+  isReadonly,
   storedFiles,
 } = useProvideAttachmentCell(updateModelValue)
 
-const { dragging } = useSortable(sortableRef, visibleItems, updateModelValue, _isReadonly)
+const { dragging } = useSortable(sortableRef, visibleItems, updateModelValue, isReadonly)
 
 const active = inject(ActiveCellInj, ref(false))
-
-const isReadonly = computed(() => {
-  return isLockedMode.value || _isReadonly.value
-})
 
 const { state: rowState } = useSmartsheetRowStoreOrThrow()
 
@@ -186,7 +180,6 @@ const onImageClick = (item: any) => {
 <template>
   <div
     ref="attachmentCellRef"
-    tabindex="0"
     :style="{
       height: isForm || isExpandedForm ? undefined : `max(${(rowHeight || 1) * 1.8}rem, 41px)`,
     }"
@@ -213,7 +206,9 @@ const onImageClick = (item: any) => {
       :class="{ 'sm:(mx-auto px-4) xs:(w-full min-w-8)': !visibleItems.length }"
       class="group cursor-pointer py-1 flex gap-1 items-center active:(ring ring-accent ring-opacity-100) rounded border-none shadow-sm hover:(bg-primary bg-opacity-10) dark:(!bg-slate-500)"
       data-testid="attachment-cell-file-picker-button"
+      tabindex="0"
       @click="open"
+      @keydown.enter="open"
     >
       <component :is="iconMap.reload" v-if="isLoading" :class="{ 'animate-infinite animate-spin': isLoading }" />
 

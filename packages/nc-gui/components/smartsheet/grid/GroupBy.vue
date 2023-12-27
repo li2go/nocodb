@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import tinycolor from 'tinycolor2'
-import { UITypes } from 'nocodb-sdk'
+import dayjs from 'dayjs'
+import { UITypes, dateFormats, timeFormats } from 'nocodb-sdk'
 import Table from './Table.vue'
 import GroupBy from './GroupBy.vue'
 import GroupByTable from './GroupByTable.vue'
@@ -139,24 +140,48 @@ const onScroll = (e: Event) => {
 
 // a method to parse group key if grouped column type is LTAR or Lookup
 // in these 2 scenario it will return json array or `___` separated value
-const parseKey = (group) => {
-  const key = group.key.toString()
+const parseKey = (group: Group) => {
+  let key = group.key.toString()
 
   // parse json array key if it's a lookup or link to another record
   if ((key && group.column?.uidt === UITypes.Lookup) || group.column?.uidt === UITypes.LinkToAnotherRecord) {
     try {
-      const parsedKey = JSON.parse(key)
-      return parsedKey
+      key = JSON.parse(key)
     } catch {
       // if parsing try to split it by `___` (for sqlite)
       return key.split('___')
     }
   }
+
+  // show the groupBy dateTime field title format as like cell format
+  if (key && group.column?.uidt === UITypes.DateTime && dayjs(key).isValid()) {
+    const dateFormat = parseProp(group.column?.meta)?.date_format ?? dateFormats[0]
+    const timeFormat = parseProp(group.column?.meta)?.time_format ?? timeFormats[0]
+
+    const dateTimeFormat = `${dateFormat} ${timeFormat}`
+
+    return [dayjs(key).utc().local().format(dateTimeFormat)]
+  }
+
+  // show the groupBy time field title format as like cell format
+  if (key && group.column?.uidt === UITypes.Time && dayjs(key).isValid()) {
+    return [dayjs(key).format(timeFormats[0])]
+  }
+
+  if (key && group.column?.uidt === UITypes.User) {
+    try {
+      const parsedKey = JSON.parse(key)
+      return [parsedKey]
+    } catch {
+      return null
+    }
+  }
+
   return [key]
 }
 
 const shouldRenderCell = (column) =>
-  [UITypes.Lookup, UITypes.Attachment, UITypes.Barcode, UITypes.QrCode, UITypes.Links].includes(column?.uidt)
+  [UITypes.Lookup, UITypes.Attachment, UITypes.Barcode, UITypes.QrCode, UITypes.Links, UITypes.User].includes(column?.uidt)
 </script>
 
 <template>

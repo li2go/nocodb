@@ -8,7 +8,6 @@ import {
   EditModeInj,
   IsExpandedFormOpenInj,
   IsFormInj,
-  IsLockedInj,
   IsPublicInj,
   IsSurveyFormInj,
   NavigateDir,
@@ -22,7 +21,6 @@ import {
   isDate,
   isDateTime,
   isDecimal,
-  isDrawerExist,
   isDuration,
   isEmail,
   isFloat,
@@ -41,6 +39,7 @@ import {
   isTextArea,
   isTime,
   isURL,
+  isUser,
   isYear,
   provide,
   ref,
@@ -86,8 +85,6 @@ const isForm = inject(IsFormInj, ref(false))
 const isGrid = inject(IsGridInj, ref(false))
 
 const isPublic = inject(IsPublicInj, ref(false))
-
-const isLocked = inject(IsLockedInj, ref(false))
 
 const isSurveyForm = inject(IsSurveyFormInj, ref(false))
 
@@ -207,7 +204,6 @@ onUnmounted(() => {
         'h-10': isForm && !isSurveyForm && !isAttachment(column) && !props.virtual,
         'nc-grid-numeric-cell-left': (isForm && isNumericField && isExpandedFormOpen) || isEditColumnMenu,
         '!min-h-30 resize-y': isTextArea(column) && (isForm || isSurveyForm),
-        '!border-2 !border-brand-500': props.editEnabled && (isSurveyForm || isForm) && !isDrawerExist(),
       },
     ]"
     @keydown.enter.exact="navigate(NavigateDir.NEXT, $event)"
@@ -248,6 +244,7 @@ onUnmounted(() => {
         <LazyCellPhoneNumber v-else-if="isPhoneNumber(column)" v-model="vModel" />
         <LazyCellPercent v-else-if="isPercent(column)" v-model="vModel" />
         <LazyCellCurrency v-else-if="isCurrency(column)" v-model="vModel" @save="emit('save')" />
+        <LazyCellUser v-else-if="isUser(column)" v-model="vModel" :row-index="props.rowIndex" />
         <LazyCellDecimal v-else-if="isDecimal(column)" v-model="vModel" />
         <LazyCellFloat v-else-if="isFloat(column, abstractType)" v-model="vModel" />
         <LazyCellText v-else-if="isString(column, abstractType)" v-model="vModel" />
@@ -255,11 +252,7 @@ onUnmounted(() => {
         <LazyCellJson v-else-if="isJSON(column)" v-model="vModel" />
         <LazyCellText v-else v-model="vModel" />
         <div
-          v-if="
-            (isLocked || (isPublic && readOnly && !isForm) || isSystemColumn(column)) &&
-            !isAttachment(column) &&
-            !isTextArea(column)
-          "
+          v-if="(isPublic && readOnly && !isForm) || (isSystemColumn(column) && !isAttachment(column) && !isTextArea(column))"
           class="nc-locked-overlay"
         />
       </template>

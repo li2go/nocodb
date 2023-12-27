@@ -149,15 +149,16 @@ export enum CacheScope {
   AUDIT = 'audit',
   HOOK = 'hook',
   PLUGIN = 'plugin',
-  PROJECT_USER = 'baseUser',
+  BASE_USER = 'baseUser',
   MODEL_ROLE_VISIBILITY = 'modelRoleVisibility',
   API_TOKEN = 'apiToken',
   INSTANCE_META = 'instanceMeta',
-  USER_PROJECT = 'userProject',
+  USER_BASE = 'userBase',
   DASHBOARD_PROJECT_DB_PROJECT_LINKING = 'dashboardProjectDBProjectLinking',
   SINGLE_QUERY = 'singleQuery',
   JOBS = 'nc_jobs',
   PRESIGNED_URL = 'presignedUrl',
+  STORE = 'store',
 }
 
 export enum CacheGetType {
