@@ -3847,7 +3847,7 @@ class BaseModelSqlv2 {
   }
 
   // method for validating otpions if column is single/multi select
-  private async validateOptions(
+  private async avalidateOptions(
     column: Column<any>,
     insertOrUpdateObject: Record<string, any>,
   ) {
@@ -5514,6 +5514,20 @@ class BaseModelSqlv2 {
       console.log(e);
       throw e;
     }
+  }
+
+  async updateLastModifiedTime({ rowIds }: { rowIds: any | any[] }) {
+    const columnName = 'updated_at';
+
+    const qb = this.dbDriver(this.tnPath).update({
+      [columnName]: this.dbDriver.fn.now(),
+    });
+
+    for(const rowId of rowIds) {
+      qb.orWhere(await this._wherePk(rowId));
+    }
+
+    await qb;
   }
 
   async prepareNocoData(data) {
