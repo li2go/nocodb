@@ -3975,6 +3975,15 @@ class BaseModelSqlv2 {
               { raw: true },
             );
           }
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [childId],
+          });
+          await this.updateLastModifiedTime({
+            model: childTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.HAS_MANY:
@@ -3994,6 +4003,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.BELONGS_TO:
@@ -4013,6 +4027,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [childId],
+          });
         }
         break;
     }
@@ -4106,6 +4125,15 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [childId],
+          });
+          await this.updateLastModifiedTime({
+            model: childTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.HAS_MANY:
@@ -4123,6 +4151,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.BELONGS_TO:
@@ -4140,6 +4173,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [childId],
+          });
         }
         break;
     }
@@ -5049,6 +5087,15 @@ class BaseModelSqlv2 {
           await this.execAndParse(this.dbDriver(vTn).insert(insertData), null, {
             raw: true,
           });
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: childIds,
+          });
+          await this.updateLastModifiedTime({
+            model: childTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.HAS_MANY:
@@ -5123,6 +5170,11 @@ class BaseModelSqlv2 {
             );
           }
           await this.execAndParse(updateQb, null, { raw: true });
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.BELONGS_TO:
@@ -5165,6 +5217,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [rowId],
+          });
         }
         break;
     }
@@ -5306,6 +5363,15 @@ class BaseModelSqlv2 {
               : childIds,
           );
           await this.execAndParse(delQb, null, { raw: true });
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: childIds,
+          });
+          await this.updateLastModifiedTime({
+            model: childTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.HAS_MANY:
@@ -5386,6 +5452,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [rowId],
+          });
         }
         break;
       case RelationTypes.BELONGS_TO:
@@ -5431,6 +5502,11 @@ class BaseModelSqlv2 {
             null,
             { raw: true },
           );
+
+          await this.updateLastModifiedTime({
+            model: parentTable,
+            rowIds: [childIds[0]],
+          });
         }
         break;
     }
@@ -5516,14 +5592,21 @@ class BaseModelSqlv2 {
     }
   }
 
-  async updateLastModifiedTime({ rowIds }: { rowIds: any | any[] }) {
+  async updateLastModifiedTime({
+    rowIds,
+    model = this.model,
+    knex = this.dbDriver,
+  }: {
+    rowIds: any | any[];
+    model?: Model;
+  }) {
     const columnName = 'updated_at';
 
-    const qb = this.dbDriver(this.tnPath).update({
+    const qb = knex(model.table_name).update({
       [columnName]: this.dbDriver.fn.now(),
     });
 
-    for(const rowId of rowIds) {
+    for (const rowId of Array.isArray(rowIds) ? rowIds : [rowIds]) {
       qb.orWhere(await this._wherePk(rowId));
     }
 
